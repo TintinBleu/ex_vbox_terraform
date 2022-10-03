@@ -1,0 +1,8 @@
+vms.txt
+terraform.tfstate
+terraform.tfstate.backup
+virtualbox.box
+.terraform/
+.terraform.lock.hcl
+.terraform.tfstate.lock.info
+
