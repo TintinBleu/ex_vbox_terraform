@@ -1,0 +1,40 @@
+#!/bin/bash
+
+# Premier numero de la série
+index=3
+# Nombre de machines
+count=1
+
+# Déploiment terraform
+terraform init -reconfigure
+terraform plan
+terraform apply -var "nb=$count" -var "start=$index" -auto-approve 2>/dev/null
+
+# on guette le timeout
+if [ $? -ne 0 ]; then timeout=1 ; fi
+
+echo
+
+# On copie notre clé publique, on met à jour le hostname des machines, et on fixe les adresses ip données par le dhcp
+for ((i=$index;i<$((index+count));i++));do
+  vm=ubuntu$i
+  # si terraform apply timeout, on attend que la machine ait une adresse ip
+  if [ "$timeout" == 1 ] ; then
+    while vboxmanage guestproperty get $vm /VirtualBox/GuestInfo/Net/0/V4/IP |grep -q "No value"; do
+      sleep 5
+      echo "Wait VM until ready..."
+    done
+    # on affiche l'adresse ip (pas de terraform output)
+    echo -e "\n [$vm ip] $(vboxmanage guestproperty get $vm /VirtualBox/GuestInfo/Net/0/V4/IP)"
+  fi
+  ip_addr=$(vboxmanage guestproperty get $vm /VirtualBox/GuestInfo/Net/0/V4/IP|cut -d ':' -f2)
+  vboxmanage guestcontrol $vm --username vagrant --password vagrant copyto id_rsa.pub /home/vagrant/.ssh/authorized_keys 
+  vboxmanage guestcontrol $vm --username vagrant --password vagrant copyto network_config /home/vagrant/
+  vboxmanage guestcontrol $vm --username vagrant --password vagrant run /usr/bin/bash /home/vagrant/network_config $vm $ip_addr
+  if grep -qsw $vm vms.txt; then
+	  sed -i "s/$vm:.*/$vm:$ip_addr/" vms.txt
+  else
+	  echo "$vm:$ip_addr" >> vms.txt
+  fi
+done
+echo

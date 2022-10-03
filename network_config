@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# à adapter à votre réseau
+
+sudo hostnamectl set-hostname $1
+
+sudo bash -c "cat > /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg << EOF
+network: {config: disabled}
+EOF"
+
+sudo bash -c "cat > /etc/netplan/50-cloud-init.yaml << EOF
+network:
+  ethernets:
+    enp0s17:
+      dhcp4: false
+      addresses: [$2/24]
+      gateway4: 172.19.30.254
+      nameservers:
+        addresses: [172.19.30.128,172.19.30.254]
+  version: 2
+EOF"
+
+sudo netplan apply
+
+rm $0
